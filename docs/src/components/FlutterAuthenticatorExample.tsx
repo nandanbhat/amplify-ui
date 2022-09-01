@@ -22,10 +22,7 @@ export function FlutterAuthenticatorExample({
 }) {
   const colorAttr = 'data-amplify-color-mode';
   // in dev mode, `data-amplify-color-mode` will not be on the html element
-  const colorElements =
-    typeof window !== 'undefined'
-      ? document.querySelectorAll(`[${colorAttr}]`)
-      : [];
+  const colorElements = document.querySelectorAll(`[${colorAttr}]`);
   const themeMode = colorElements.length
     ? colorElements[0].getAttribute(colorAttr)
     : 'light';

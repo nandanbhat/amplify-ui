@@ -136,22 +136,22 @@ module.exports = withNextPluginPreval({
       },
       /**
        * source: a url has one of the folder's names (components, getting-started, guides, theming)
-       * destination: add '/react/' to the the beginning
+       * destination: add '[platform]' to the the beginning
        */
       {
         source:
           '/:nav(legacy-components|connected-components|components|getting-started|guides|theming)/:page*',
-        destination: '/react/:nav/:page*',
+        destination: '/[platform]/:nav/:page*',
         permanent: true,
       },
       /**
        * source: a url points one of the folder's names (components, getting-started, guides, theming)'s index file
-       * destination: add '/react/' to the beginning
+       * destination: add '[platform]' to the beginning
        */
       {
         source:
           '/:nav(legacy-components|connected-components|components|getting-started|guides|theming)',
-        destination: '/react/:nav',
+        destination: '/[platform]/:nav',
         permanent: true,
       },
     ];

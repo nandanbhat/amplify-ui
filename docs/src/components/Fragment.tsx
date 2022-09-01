@@ -2,9 +2,9 @@ import * as React from 'react';
 
 import { Alert, Flex, Link, Placeholder } from '@aws-amplify/ui-react';
 import dynamic, { LoaderComponent } from 'next/dynamic';
-import { useRouter } from 'next/router';
 
 import { isArray } from 'lodash';
+import { useCustomRouter } from '@/components/useCustomRouter';
 
 export default function Example() {
   return;
@@ -46,10 +46,9 @@ export const Fragment = ({
   platforms,
   useCommonWebContent,
 }: FragmentProps) => {
-  const {
-    query: { platform: framework = 'react' },
-  } = useRouter();
-  const platform = getPlatform(framework as string, useCommonWebContent);
+  const { query } = useCustomRouter();
+  const framework = (query.platform as string) ?? 'react';
+  const platform = getPlatform(framework, useCommonWebContent);
   const Component = React.useMemo(() => {
     if (!shouldRenderFragment(platforms, platform)) {
       return null;

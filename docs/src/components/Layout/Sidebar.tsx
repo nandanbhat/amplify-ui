@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useRouter } from 'next/router';
 import {
   MdOutlineChecklist,
   MdOutlineWidgets,
@@ -30,6 +29,7 @@ import {
 } from '../../data/links';
 
 import Link from 'next/link';
+import { useCustomRouter } from '@/components/useCustomRouter';
 import { isReactNativeEnabled } from '@/utils/featureFlags';
 import { FrameworkChooser } from './FrameworkChooser';
 import { LogoLink } from './LogoLink';
@@ -61,7 +61,7 @@ const NavLink = ({
   const {
     query: { platform = 'react' },
     pathname,
-  } = useRouter();
+  } = useCustomRouter();
   const isCurrent = pathname.replace('/[platform]', '') === href;
   const classNames = `${
     tertiary ? 'docs-tertiary-nav-link' : 'docs-secondary-nav-link'
@@ -81,7 +81,7 @@ const NavLink = ({
 };
 
 const NavLinkComponentsSection = ({ heading, components, ...props }) => {
-  const { query } = useRouter();
+  const { query } = useCustomRouter();
   const { tokens } = useTheme();
   const { platform = 'react' } = query;
 
@@ -137,7 +137,7 @@ const ExpanderTitle = ({ Icon, text }) => {
 
 // TODO: clean up this logic
 const SecondaryNav = (props) => {
-  const { pathname } = useRouter();
+  const { pathname } = useCustomRouter();
   const { platform } = props;
   // Extract section from URL (/section/... => section)
   let section = pathname.split('/')[2];

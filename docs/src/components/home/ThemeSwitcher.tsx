@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useRouter } from 'next/router';
 
 import {
   Card,
@@ -32,6 +31,7 @@ import {
 import { CgTerminal, CgLinear, CgCopyright } from 'react-icons/cg';
 
 import themePreval from './themes/index.preval';
+import { useCustomRouter } from '@/components/useCustomRouter';
 import { HomeCode } from '@/components/home/HomeCode';
 import { CodeHighlight } from '@/components/CodeHighlight';
 import { trackClick } from '@/utils/track';
@@ -209,7 +209,7 @@ export const ThemeSwitcher = ({ colorMode }) => {
   const [theme, setTheme] = useState('default');
   const {
     query: { platform = 'react' },
-  } = useRouter();
+  } = useCustomRouter();
 
   const isMobile = useBreakpointValue({
     base: true,
