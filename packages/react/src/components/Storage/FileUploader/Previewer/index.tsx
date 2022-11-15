@@ -1,56 +1,46 @@
 import React from 'react';
-import { translate } from '@aws-amplify/ui';
+import { ComponentClassName, translate } from '@aws-amplify/ui';
 import { PreviewerProps } from '../types';
 import {
   Alert,
   Button,
-  Card,
-  Flex,
+  ComponentClassNames,
   Loader,
   Text,
   View,
 } from '../../../../primitives';
 import { UploadDropZone } from '../UploadDropZone';
 import { UploadButton } from '../UploadButton';
-import { Tracker } from '../Tracker';
 
 export function Previewer({
-  files,
+  acceptedFileTypes,
+  children,
+  fileStatuses,
   inDropZone,
+  isLoading,
+  isSuccess,
+  maxFilesError,
+  multiple,
   onClear,
   onDragEnter,
   onDragLeave,
   onDragOver,
   onDragStart,
   onDrop,
-  onFileCancel,
-  onNameChange,
-  allFileNames,
-  acceptedFileTypes,
-  multiple,
   onFileChange,
-  fileStatuses,
-  onPause,
-  onResume,
-  onDelete,
-  isLoading,
-  isSuccess,
-  percentage,
   onFileClick,
-  isEditingName,
-  onSaveEdit,
-  onCancelEdit,
-  onStartEdit,
-  maxFilesError,
+  percentage,
+  hiddenInput,
+  onUploadButtonClick,
 }: PreviewerProps): JSX.Element {
   const headingMaxFiles = translate('Over Max files!');
   const uploadedFilesLength = () =>
-    files.filter((_, i) => fileStatuses[i]?.success).length;
+    fileStatuses.filter((file) => file?.fileState === 'success').length;
 
-  const remainingFilesLength = files.length - uploadedFilesLength();
+  const remainingFilesLength = fileStatuses.length - uploadedFilesLength();
   return (
-    <Card variation="outlined" className="amplify-fileuploader__previewer">
-      <Flex className="amplify-fileuploader__previewer__body">
+    <View className={ComponentClassNames.FileUploaderPreviewer}>
+      <View className={ComponentClassNames.FileUploaderPreviewerBody}>
         <UploadDropZone
           inDropZone={inDropZone}
           onDragEnter={onDragEnter}
@@ -59,17 +49,20 @@ export function Previewer({
           onDragStart={onDragStart}
           onDrop={onDrop}
         >
-          <Text className="amplify-fileuploader__dropzone__text">
+          <Text className={ComponentClassNames.FileUploaderDropZoneText}>
             {translate('Drop files here or')}
           </Text>
           <UploadButton
             acceptedFileTypes={acceptedFileTypes}
+            isLoading={isLoading}
             multiple={multiple}
             onFileChange={onFileChange}
-            className={'amplify-fileuploader__dropzone__button'}
+            className={ComponentClassNames.FileUploaderDropZoneButton}
+            hiddenInput={hiddenInput}
+            onClick={onUploadButtonClick}
           />
         </UploadDropZone>
-        <Text fontWeight="bold">
+        <Text className={ComponentClassNames.FileUploaderPreviewerText}>
           {isSuccess ? (
             <>
               {uploadedFilesLength()} {translate('files uploaded')}
@@ -80,77 +73,62 @@ export function Previewer({
             </>
           )}
         </Text>
-        {files?.map((file, index) => (
-          <Tracker
-            percentage={fileStatuses[index]?.percentage}
-            file={file}
-            hasImage={file?.type.startsWith('image/')}
-            url={URL.createObjectURL(file)}
-            key={index}
-            onChange={(e): void => onNameChange(e, index)}
-            onCancel={() => onFileCancel(index)}
-            onPause={onPause(index)}
-            onResume={onResume(index)}
-            onDelete={onDelete}
-            name={allFileNames[index]}
-            isLoading={fileStatuses[index]?.loading}
-            isError={fileStatuses[index]?.error}
-            errorMessage={fileStatuses[index]?.fileErrors}
-            isSuccess={fileStatuses[index]?.success}
-            isPaused={fileStatuses[index]?.paused}
-            isEditing={isEditingName[index]}
-            onSaveEdit={(e): void => onSaveEdit(e, index)}
-            onCancelEdit={(e): void => onCancelEdit(e, index)}
-            onStartEdit={(e): void => onStartEdit(e, index)}
-          />
-        ))}
-        <View className="amplify-fileuploader__footer">
+        {children}
+      </View>
+
+      <View className={ComponentClassNames.FileUploaderPreviewerFooter}>
+        <View>
           {isLoading && (
             <>
-              <Text>Uploading: {percentage}%</Text>
+              <Text>
+                {translate('Uploading')}
+                {percentage > 0 ? `: ${percentage}%` : ''}
+              </Text>
               <Loader
-                className="amplify-fileuploader-loader"
+                className={ComponentClassNames.FileUploaderLoader}
                 variation="linear"
                 percentage={percentage}
+                isPercentageTextHidden
                 isDeterminate
               />
             </>
           )}
+        </View>
+
+        <View className={ComponentClassName.FileUploaderPreviewerFooterActions}>
           {!isLoading && !isSuccess && (
             <>
-              <View>
-                <Button
-                  disabled={
-                    fileStatuses.some((status) => status?.error) ||
-                    isEditingName.some((edit) => edit) ||
-                    remainingFilesLength === 0 ||
-                    maxFilesError
-                  }
-                  size="small"
-                  variation="primary"
-                  onClick={onFileClick}
-                >
-                  {translate('Upload')}
-                  {` ${remainingFilesLength} `}
-                  {translate('files')}
-                </Button>
-              </View>
+              <Button
+                disabled={
+                  fileStatuses.some((status) =>
+                    ['error', 'editing'].includes(status?.fileState)
+                  ) ||
+                  remainingFilesLength === 0 ||
+                  maxFilesError
+                }
+                size="small"
+                variation="primary"
+                onClick={onFileClick}
+              >
+                {translate('Upload')}
+                {` ${remainingFilesLength} `}
+                {translate('files')}
+              </Button>
+
               <Button size="small" variation="link" onClick={onClear}>
                 {translate('Clear all')}
               </Button>
             </>
           )}
           {isSuccess && (
-            <>
-              <Text />
-              <Button size="small" onClick={onClear}>
-                {translate('Done')}
-              </Button>
-            </>
+            <Button size="small" onClick={onClear}>
+              {translate('Done')}
+            </Button>
           )}
         </View>
-      </Flex>
+      </View>
+
       {maxFilesError && <Alert variation="error" heading={headingMaxFiles} />}
-    </Card>
+    </View>
   );
 }

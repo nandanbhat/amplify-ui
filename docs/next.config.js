@@ -1,6 +1,7 @@
 const path = require('path');
 const { execSync } = require('child_process');
 
+const reHypeIgnoreLines = require('./src/plugins/rehype-ignore-code');
 const gitHead = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
 
 const BRANCH = gitHead === 'HEAD' ? 'main' : gitHead;
@@ -14,7 +15,6 @@ module.exports = withNextPluginPreval({
     DOCSEARCH_DOCS_APP_ID: process.env.DOCSEARCH_DOCS_APP_ID,
     DOCSEARCH_DOCS_API_KEY: process.env.DOCSEARCH_DOCS_API_KEY,
     DOCSEARCH_DOCS_INDEX_NAME: process.env.DOCSEARCH_DOCS_INDEX_NAME,
-    FF_REACT_NATIVE: process.env.FF_REACT_NATIVE,
   },
   // Differentiate pages with frontmatter & layout vs. normal MD(X)
   pageExtensions: ['page.mdx', 'page.tsx'],
@@ -71,6 +71,12 @@ module.exports = withNextPluginPreval({
       {
         source: '/:platform(react|angular|vue)/components/geo/:page*',
         destination: '/:platform/connected-components/geo/:page*',
+        permanent: true,
+      },
+      {
+        source:
+          '/:platform(react|react-native)/components/in-app-messaging/:page*',
+        destination: '/:platform/connected-components/in-app-messaging/:page*',
         permanent: true,
       },
       {
@@ -163,6 +169,11 @@ module.exports = withNextPluginPreval({
 
   webpack(config) {
     const defaultRehypePlugins = [
+      // This is a custom plugin that removes lines that end in `// IGNORE`
+      // This allows us to include code necessary for an example to run
+      // but that should not be in customer's code. For example, using a
+      // plugin to make mock a connected component.
+      reHypeIgnoreLines,
       require('mdx-prism'),
       // TODO: these are older versions of these packages because the newer versions
       // are ESM only.

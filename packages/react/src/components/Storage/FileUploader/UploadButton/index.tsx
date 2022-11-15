@@ -8,16 +8,14 @@ export function UploadButton({
   acceptedFileTypes,
   onFileChange,
   className,
+  isLoading,
+  hiddenInput,
+  onClick,
 }: UploadButtonProps): JSX.Element {
-  const hiddenInput = React.useRef<HTMLInputElement>();
-  const onClick = () => {
-    hiddenInput.current.click();
-    hiddenInput.current.value = null;
-  };
-
   return (
     <>
       <Button
+        disabled={isLoading}
         className={className}
         size="small"
         onClick={onClick}
@@ -28,6 +26,7 @@ export function UploadButton({
       <VisuallyHidden>
         <input
           type="file"
+          tabIndex={-1}
           ref={hiddenInput}
           onChange={onFileChange}
           multiple={multiple}
