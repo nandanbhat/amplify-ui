@@ -13,11 +13,12 @@ export default function FileUploaderEmail() {
       <FileUploader
         variation="drop"
         onSuccess={onSuccess}
-        acceptedFileTypes={['.png', '.jpg', '.pdf']}
+        acceptedFileTypes={['image/*']}
         level="public"
-        multiple={true}
+        hasMultipleFiles={true}
         maxSize={100000000}
         maxFiles={3}
+        isResumable={true}
       />
     </>
   );

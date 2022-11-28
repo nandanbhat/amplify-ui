@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { translate } from '@aws-amplify/ui';
 import { humanFileSize } from '@aws-amplify/ui';
 import { TrackerProps } from '../types';
@@ -17,26 +17,27 @@ import {
   IconEdit,
   IconFile,
 } from '../../../../primitives/Icon/internal';
-import { FileState } from './FileState';
+import { FileMessage } from './FileMessage';
 
 export function Tracker({
+  errorMessage,
   file,
   fileState,
   hasImage,
-  url,
+  name,
+  onCancel,
+  onCancelEdit,
   onPause,
   onResume,
-  onCancel,
-  errorMessage,
-  name,
-  percentage,
   onSaveEdit,
   onStartEdit,
-  onCancelEdit,
-  resumable,
+  percentage,
+  isResumable,
+  showImage,
 }: TrackerProps): JSX.Element {
   const [tempName, setTempName] = React.useState(name);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const url = URL.createObjectURL(file);
 
   // Focus the input after pressing the edit button
   React.useEffect(() => {
@@ -45,31 +46,38 @@ export function Tracker({
     }
   }, [fileState]);
 
-  if (!file) return null;
-
   const { size } = file;
 
   const icon = hasImage ? <Image alt={file.name} src={url} /> : <IconFile />;
+  const isDeterminate = isResumable ? percentage > 0 : true;
 
-  const showEditButton = fileState === null || fileState === 'error';
+  const showEditButton =
+    fileState === null ||
+    (fileState === 'error' &&
+      errorMessage === translate('Extension not allowed'));
 
-  const DisplayView = () => (
-    <>
-      <View className={ComponentClassNames.FileUploaderFileMain}>
-        <Text className={ComponentClassNames.FileUploaderFileName}>{name}</Text>
-        <FileState
-          fileState={fileState}
-          errorMessage={errorMessage}
-          percentage={percentage}
-        />
-      </View>
-      <Text as="span" className={ComponentClassNames.FileUploaderFileSize}>
-        {humanFileSize(size, true)}
-      </Text>
-    </>
+  const DisplayView = useCallback(
+    () => (
+      <>
+        <View className={ComponentClassNames.FileUploaderFileMain}>
+          <Text className={ComponentClassNames.FileUploaderFileName}>
+            {name}
+          </Text>
+          <FileMessage
+            fileState={fileState}
+            errorMessage={errorMessage}
+            percentage={percentage}
+          />
+        </View>
+        <Text as="span" className={ComponentClassNames.FileUploaderFileSize}>
+          {humanFileSize(size, true)}
+        </Text>
+      </>
+    ),
+    [errorMessage, fileState, name, percentage, size]
   );
 
-  const Actions = () => {
+  const Actions = useCallback(() => {
     switch (fileState) {
       case 'editing':
         return (
@@ -94,8 +102,9 @@ export function Tracker({
             </Button>
           </>
         );
+      case 'resume':
       case 'loading':
-        if (!resumable) return null;
+        if (!isResumable) return null;
         return (
           <Button onClick={onPause} size="small" variation="link">
             {translate('pause')}
@@ -125,13 +134,30 @@ export function Tracker({
           </>
         );
     }
-  };
+  }, [
+    file.name,
+    fileState,
+    isResumable,
+    name,
+    onCancel,
+    onCancelEdit,
+    onPause,
+    onResume,
+    onSaveEdit,
+    onStartEdit,
+    showEditButton,
+    tempName,
+  ]);
 
-  const isDeterminate = !resumable || (resumable && percentage > 0);
+  if (!file) return null;
 
   return (
     <View className={ComponentClassNames.FileUploaderFile}>
-      <View className={ComponentClassNames.FileUploaderFileImage}>{icon}</View>
+      {showImage ? (
+        <View className={ComponentClassNames.FileUploaderFileImage}>
+          {icon}
+        </View>
+      ) : null}
 
       {/* Main View */}
       {fileState === 'editing' ? (

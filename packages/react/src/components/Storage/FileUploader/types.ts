@@ -1,20 +1,11 @@
 import React from 'react';
 import { UploadTask } from '@aws-amplify/storage';
 import { DragActionHandlers } from './hooks/useFileUploader/types';
+import { ButtonProps } from 'src/primitives';
 
 export type SetShowPreviewer = (show: boolean) => void;
 type LevelInfo = 'public' | 'protected' | 'private';
 export type Files = File[];
-
-export interface UploadButtonProps {
-  acceptedFileTypes: string[];
-  multiple?: boolean;
-  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  className?: string;
-  isLoading?: boolean;
-  hiddenInput: React.MutableRefObject<HTMLInputElement>;
-  onClick: () => void;
-}
 
 export interface UploadDropZoneProps extends DragActionHandlers {
   children?: React.ReactNode;
@@ -23,20 +14,18 @@ export interface UploadDropZoneProps extends DragActionHandlers {
 
 export interface FileUploaderProps {
   acceptedFileTypes: string[];
-  fileNames?: string[];
-  multiple?: boolean;
   components?: Components;
+  hasMultipleFiles?: boolean;
+  isPreviewerVisible?: boolean;
+  isResumable?: boolean;
   level: LevelInfo;
   maxFiles?: number;
-  maxMultipleSize?: number;
-  isPreviewerVisible?: boolean;
   maxSize?: number;
-  onChange?: () => void;
   onError?: (error: string) => void;
   onSuccess?: (event: { key: string }) => void;
-  path?: string;
+  shouldAutoProceed?: boolean;
+  showImages?: boolean;
   variation?: 'drop' | 'button';
-  resumable?: boolean;
 }
 
 export interface IconProps {
@@ -44,53 +33,46 @@ export interface IconProps {
   fontSize?: string;
 }
 
-export interface PreviewerProps extends DragActionHandlers {
-  acceptedFileTypes: string[];
+export interface PreviewerProps {
+  aggregatePercentage: number;
   children?: React.ReactNode;
+  dropZone: React.ReactNode;
   fileStatuses: FileStatuses;
-  hiddenInput: React.MutableRefObject<HTMLInputElement>;
-  inDropZone?: boolean;
   isLoading: boolean;
-  isSuccess: boolean;
-  maxFilesError: boolean;
-  multiple?: boolean;
+  isSuccessful: boolean;
+  hasMaxFilesError: boolean;
   onClear: () => void;
-  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onFileClick: () => void;
-  onUploadButtonClick: () => void;
-  percentage: number;
 }
 
 export interface TrackerProps {
+  errorMessage: string;
   file: File;
   fileState: FileState;
   hasImage: boolean;
-  url: string;
-  resumable?: boolean;
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  name: string;
   onCancel: () => void;
+  onCancelEdit?: () => void;
   onPause: () => void;
   onResume: () => void;
-  onDelete?: () => void;
-  name: string;
-  percentage: number;
-  errorMessage: string;
   onSaveEdit: (value: string) => void;
-  onCancelEdit?: () => void;
   onStartEdit: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+  percentage: number;
+  isResumable?: boolean;
+  showImage: boolean;
 }
 
 export interface FileStatus extends Partial<FileStateProps> {
   percentage?: number;
   uploadTask?: UploadTask;
-  fileErrors?: string | null;
+  fileErrors?: string;
   name?: string;
   file?: File;
 }
 
 export type FileStatuses = FileStatus[];
 
-type FileState =
+export type FileState =
   | 'paused'
   | 'success'
   | 'error'
@@ -105,13 +87,24 @@ export interface FileStateProps {
 }
 
 type UploadButtonComponent<Props = {}> = React.ComponentType<
-  Props & Partial<UploadButtonProps>
+  Props & Partial<ButtonProps>
 >;
 
 type UploadDropZoneComponent<Props = {}> = React.ComponentType<
   Props & Partial<UploadDropZoneProps>
 >;
+
+type PreviewerComponent<Props = {}> = React.ComponentType<
+  Props & Partial<PreviewerProps>
+>;
+
+type TrackerComponent<Props = {}> = React.ComponentType<
+  Props & Partial<TrackerProps>
+>;
+
 export interface Components {
   UploadDropZone?: UploadDropZoneComponent;
   UploadButton?: UploadButtonComponent;
+  Previewer?: PreviewerComponent;
+  Tracker?: TrackerComponent;
 }

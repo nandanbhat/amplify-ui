@@ -9,68 +9,40 @@ import {
   Text,
   View,
 } from '../../../../primitives';
-import { UploadDropZone } from '../UploadDropZone';
-import { UploadButton } from '../UploadButton';
 
 export function Previewer({
-  acceptedFileTypes,
+  aggregatePercentage,
   children,
+  dropZone,
   fileStatuses,
-  inDropZone,
   isLoading,
-  isSuccess,
-  maxFilesError,
-  multiple,
+  isSuccessful,
+  hasMaxFilesError,
   onClear,
-  onDragEnter,
-  onDragLeave,
-  onDragOver,
-  onDragStart,
-  onDrop,
-  onFileChange,
   onFileClick,
-  percentage,
-  hiddenInput,
-  onUploadButtonClick,
 }: PreviewerProps): JSX.Element {
-  const headingMaxFiles = translate('Over Max files!');
-  const uploadedFilesLength = () =>
+  const headingMaxFiles = translate('Over Max files');
+  const getUploadedFilesLength = () =>
     fileStatuses.filter((file) => file?.fileState === 'success').length;
 
-  const remainingFilesLength = fileStatuses.length - uploadedFilesLength();
+  const remainingFilesLength = fileStatuses.length - getUploadedFilesLength();
+
+  const isDisabled =
+    fileStatuses.some((status) =>
+      ['error', 'editing'].includes(status?.fileState)
+    ) ||
+    remainingFilesLength === 0 ||
+    hasMaxFilesError;
+
   return (
     <View className={ComponentClassNames.FileUploaderPreviewer}>
       <View className={ComponentClassNames.FileUploaderPreviewerBody}>
-        <UploadDropZone
-          inDropZone={inDropZone}
-          onDragEnter={onDragEnter}
-          onDragLeave={onDragLeave}
-          onDragOver={onDragOver}
-          onDragStart={onDragStart}
-          onDrop={onDrop}
-        >
-          <Text className={ComponentClassNames.FileUploaderDropZoneText}>
-            {translate('Drop files here or')}
-          </Text>
-          <UploadButton
-            acceptedFileTypes={acceptedFileTypes}
-            isLoading={isLoading}
-            multiple={multiple}
-            onFileChange={onFileChange}
-            className={ComponentClassNames.FileUploaderDropZoneButton}
-            hiddenInput={hiddenInput}
-            onClick={onUploadButtonClick}
-          />
-        </UploadDropZone>
+        {dropZone}
         <Text className={ComponentClassNames.FileUploaderPreviewerText}>
-          {isSuccess ? (
-            <>
-              {uploadedFilesLength()} {translate('files uploaded')}
-            </>
+          {isSuccessful ? (
+            <>{`${getUploadedFilesLength()} ${translate('files uploaded')}`}</>
           ) : (
-            <>
-              {remainingFilesLength} {translate('files selected')}
-            </>
+            <>{`${remainingFilesLength} ${translate('files selected')}`}</>
           )}
         </Text>
         {children}
@@ -82,12 +54,12 @@ export function Previewer({
             <>
               <Text>
                 {translate('Uploading')}
-                {percentage > 0 ? `: ${percentage}%` : ''}
+                {aggregatePercentage > 0 ? `: ${aggregatePercentage}%` : ''}
               </Text>
               <Loader
                 className={ComponentClassNames.FileUploaderLoader}
                 variation="linear"
-                percentage={percentage}
+                percentage={aggregatePercentage}
                 isPercentageTextHidden
                 isDeterminate
               />
@@ -96,16 +68,10 @@ export function Previewer({
         </View>
 
         <View className={ComponentClassName.FileUploaderPreviewerFooterActions}>
-          {!isLoading && !isSuccess && (
+          {!isLoading && !isSuccessful && (
             <>
               <Button
-                disabled={
-                  fileStatuses.some((status) =>
-                    ['error', 'editing'].includes(status?.fileState)
-                  ) ||
-                  remainingFilesLength === 0 ||
-                  maxFilesError
-                }
+                disabled={isDisabled}
                 size="small"
                 variation="primary"
                 onClick={onFileClick}
@@ -120,7 +86,7 @@ export function Previewer({
               </Button>
             </>
           )}
-          {isSuccess && (
+          {isSuccessful && (
             <Button size="small" onClick={onClear}>
               {translate('Done')}
             </Button>
@@ -128,7 +94,9 @@ export function Previewer({
         </View>
       </View>
 
-      {maxFilesError && <Alert variation="error" heading={headingMaxFiles} />}
+      {hasMaxFilesError && (
+        <Alert variation="error" heading={headingMaxFiles} />
+      )}
     </View>
   );
 }

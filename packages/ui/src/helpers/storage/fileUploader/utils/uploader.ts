@@ -1,16 +1,6 @@
 import { Storage } from 'aws-amplify';
-import { StorageAccessLevel, UploadTask } from '@aws-amplify/storage';
+import { StorageAccessLevel } from '@aws-amplify/storage';
 import { translate } from '../../../../i18n';
-
-export function getFileName(fileName: string, name: string): string {
-  if (!fileName) {
-    // If user did not send over fileName prop
-    // default to the file name, or the name they changed
-    return name;
-  } else {
-    return fileName;
-  }
-}
 
 export function uploadFile({
   file,
@@ -19,28 +9,24 @@ export function uploadFile({
   progressCallback,
   errorCallback,
   completeCallback,
-  resumable = false,
+  isResumable = false,
   ...rest
 }: {
   file: File;
   fileName: string;
   level: StorageAccessLevel;
-  resumable?: boolean;
+  isResumable?: boolean;
   progressCallback: (progress: { loaded: number; total: number }) => void;
   errorCallback: (err: string) => void;
   completeCallback: (event) => void;
 }) {
-  if (resumable === true) {
+  if (isResumable === true) {
     return Storage.put(fileName, file, {
       level,
-      resumable,
+      resumable: isResumable,
       progressCallback,
       errorCallback,
-      // TODO: Remove this override once we depend on aws-amplify@5
-      // this behavior is fixed in version 5
-      completeCallback: (event) => {
-        completeCallback({ key: event.key.split('/').slice(1).join('/') });
-      },
+      completeCallback,
       ...rest,
     });
   } else {
@@ -89,7 +75,7 @@ export function humanFileSize(bytes, si = false, dp = 1) {
 export const checkMaxSize = (maxSize: number, file: File): string | null => {
   if (!maxSize) return null;
   if (file.size > maxSize) {
-    return translate('Size above max ') + humanFileSize(maxSize, true);
+    return translate('Above max ') + humanFileSize(maxSize, true);
   }
   return null;
 };
@@ -99,8 +85,27 @@ export const returnAcceptedFiles = (
   acceptedFileTypes: string[]
 ): File[] => {
   // Remove any files that are not in the accepted file list
-  return [...files].filter((file) => {
-    const [extension] = file.name.split('.').reverse();
-    return acceptedFileTypes.includes('.' + extension);
+  return files.filter((file) => {
+    const fileName = file.name || '';
+    const mimeType = (file.type || '').toLowerCase();
+    const baseMimeType = mimeType.replace(/\/.*$/, '');
+    return acceptedFileTypes.some((type) => {
+      const validType = type.trim().toLowerCase();
+      if (validType.charAt(0) === '.') {
+        return fileName.toLowerCase().endsWith(validType);
+      } else if (validType.endsWith('/*')) {
+        // This is something like a image/* mime type
+        return baseMimeType === validType.replace(/\/.*$/, '');
+      }
+      return mimeType === validType;
+    });
   });
+};
+export const isValidExtension = (
+  fileName: string,
+  fileName2: string
+): boolean => {
+  const extension = fileName.split('.').pop();
+  const fileExtension = fileName2.split('.').pop();
+  return fileExtension === extension;
 };

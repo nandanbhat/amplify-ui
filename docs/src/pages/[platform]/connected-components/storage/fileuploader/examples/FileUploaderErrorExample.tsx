@@ -1,28 +1,23 @@
-import { FileUploader, View, useTheme } from '@aws-amplify/ui-react';
+import * as React from 'react';
+import { FileUploader } from '@aws-amplify/ui-react';
 
 export const FileUploaderErrorExample = () => {
-  const { tokens } = useTheme();
-
-  const onSuccess = (event) => {
-    console.log('got back', event);
-  };
-
-  const onError = (event) => {
-    console.log(event);
+  const [message, setMessage] = React.useState('');
+  const onError = (error) => {
+    setMessage(`${error}`);
   };
 
   return (
-    <FileUploader
-      variation="drop"
-      onSuccess={onSuccess}
-      onError={onError}
-      acceptedFileTypes={['image/*']}
-      level="public"
-      multiple={true}
-      maxSize={100000000}
-      maxFiles={3}
-      resumable={true}
-      provider="error" // IGNORE
-    />
+    <>
+      <FileUploader
+        onError={onError}
+        isResumable={true}
+        variation="drop"
+        acceptedFileTypes={['image/*']}
+        level="public"
+        provider="error" // IGNORE
+      />
+      {message}
+    </>
   );
 };

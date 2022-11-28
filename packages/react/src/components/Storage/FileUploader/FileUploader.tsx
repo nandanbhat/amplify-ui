@@ -1,78 +1,91 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { UploadTask, Storage } from '@aws-amplify/storage';
-import { getFileName, translate, uploadFile } from '@aws-amplify/ui';
-import { FileStatuses, FileUploaderProps } from './types';
+import { translate, uploadFile, isValidExtension } from '@aws-amplify/ui';
+import { FileState, FileUploaderProps } from './types';
 import { useFileUploader } from './hooks/useFileUploader';
-import { ComponentClassNames, Text } from '../../../primitives';
-import { UploadButton } from './UploadButton';
+import {
+  Button,
+  ComponentClassNames,
+  VisuallyHidden,
+} from '../../../primitives';
 import { Previewer } from './Previewer';
 import { UploadDropZone } from './UploadDropZone';
 import { Tracker } from './Tracker';
+import { Logger } from 'aws-amplify';
 
 const isUploadTask = (value: unknown): value is UploadTask =>
   typeof (value as UploadTask)?.resume === 'function';
 
+const logger = new Logger('AmplifyUI:Auth');
+
 export function FileUploader({
   acceptedFileTypes,
-  components = {},
-  fileNames,
+  shouldAutoProceed = false,
+  components,
   isPreviewerVisible,
   level,
   maxFiles,
   maxSize,
-  multiple = true,
+  hasMultipleFiles = true,
   onError,
   onSuccess,
+  showImages = true,
   variation = 'button',
-  resumable = false,
+  isResumable = false,
   ...rest
 }: FileUploaderProps): JSX.Element {
   const {
     UploadDropZone = FileUploader.UploadDropZone,
-    UploadButton = FileUploader.UploadButton,
-  } = components;
+    UploadButton = Button,
+    Previewer = FileUploader.Previewer,
+    Tracker = FileUploader.Tracker,
+  } = components ?? {};
+
+  if (!acceptedFileTypes || !level) {
+    logger.warn('FileUploader requires level and acceptedFileTypes props');
+  }
 
   // File Previewer loading state
   const [isLoading, setLoading] = useState(false);
-
-  const fileStatusesRef = useRef<FileStatuses>([]);
+  const [autoLoad, setAutoLoad] = useState(false);
 
   const {
     addTargetFiles,
     fileStatuses,
     inDropZone,
-    onDragEnter,
-    onDragLeave,
-    onDragOver,
-    onDragStart,
-    onDrop,
     setFileStatuses,
     setShowPreviewer,
     showPreviewer,
-  } = useFileUploader({ maxSize, acceptedFileTypes, multiple, isLoading });
+    ...dropZoneProps
+  } = useFileUploader({
+    maxSize,
+    acceptedFileTypes,
+    hasMultipleFiles,
+    isLoading,
+    setAutoLoad,
+  });
 
   // Creates aggregate percentage to show during downloads
-  const percentage = Math.floor(
+  const aggregatePercentage = Math.floor(
     fileStatuses.reduce((prev, curr) => prev + (curr?.percentage ?? 0), 0) /
       fileStatuses.length
   );
 
   // checks if all downloads completed to 100%
-  const isSuccess = () => {
-    if (fileStatuses.length === 0) return;
-
-    return fileStatuses.every((status) => status?.percentage === 100);
-  };
+  const isSuccessful =
+    fileStatuses.length === 0
+      ? false
+      : fileStatuses.every((status) => status?.percentage === 100);
 
   // Displays if over max files
-  const maxFilesError = fileStatuses.length > maxFiles;
+  const hasMaxFilesError = fileStatuses.length > maxFiles;
 
   useEffect(() => {
     // Loading ends when all files are at 100%
-    if (Math.floor(percentage) === 100) {
+    if (Math.floor(aggregatePercentage) === 100) {
       setLoading(false);
     }
-  }, [fileStatuses, percentage]);
+  }, [aggregatePercentage]);
 
   useEffect(() => {
     setShowPreviewer(isPreviewerVisible);
@@ -83,14 +96,24 @@ export function FileUploader({
   const progressCallback = useCallback(
     (index: number) => {
       return (progress: { loaded: number; total: number }) => {
-        const percentage = Math.floor((progress.loaded / progress.total) * 100);
-        const status = fileStatusesRef.current[index];
-        fileStatusesRef.current[index] =
-          percentage !== 100
-            ? { ...status, percentage, fileState: 'loading' }
-            : { ...status, percentage, fileState: 'success' };
-        const newFileStatuses = [...fileStatusesRef.current];
-        setFileStatuses(newFileStatuses);
+        setFileStatuses((prevFileStatuses) => {
+          const prevStatus = { ...prevFileStatuses[index] };
+
+          const progressPercentage = Math.floor(
+            (progress.loaded / progress.total) * 100
+          );
+          const fileState: FileState =
+            progressPercentage !== 100 ? 'loading' : 'success';
+          const updatedStatus = {
+            ...prevStatus,
+            percentage: progressPercentage,
+            fileState,
+          };
+
+          prevFileStatuses[index] = updatedStatus;
+
+          return [...prevFileStatuses];
+        });
       };
     },
     [setFileStatuses]
@@ -99,31 +122,25 @@ export function FileUploader({
   const errorCallback = useCallback(
     (index: number) => {
       return (err: string) => {
-        const status = fileStatusesRef.current[index];
-        fileStatusesRef.current[index] = {
-          ...status,
-          fileState: 'error',
-          fileErrors: translate(err.toString()),
-        };
+        setFileStatuses((prevFileStatuses) => {
+          const prevStatus = { ...prevFileStatuses[index] };
 
-        const newFileStatuses = [...fileStatusesRef.current];
-        setFileStatuses(newFileStatuses);
+          const updatedStatus = {
+            ...prevStatus,
+            fileState: 'error' as FileState,
+            fileErrors: translate(err.toString()),
+          };
+
+          prevFileStatuses[index] = updatedStatus;
+
+          return [...prevFileStatuses];
+        });
         setLoading(false);
         if (typeof onError === 'function') onError(err);
       };
     },
     [onError, setFileStatuses]
   );
-
-  const completeCallback = useCallback(() => {
-    return (event: { key: string }) => {
-      if (typeof onSuccess === 'function') onSuccess(event);
-    };
-  }, [onSuccess]);
-
-  const onDelete = () => {
-    //todo delete
-  };
 
   const onPause = useCallback(
     (index: number): (() => void) => {
@@ -164,51 +181,38 @@ export function FileUploader({
     const uploadTasksTemp: UploadTask[] = [];
     fileStatuses.forEach((status, i) => {
       if (status?.fileState === 'success') return;
-
-      // remove any filenames that are not accepted from user prop
-      const fileNamesFiltered = fileNames?.filter((file: string) => {
-        const [extension] = file.split('.').reverse();
-        return acceptedFileTypes.includes('.' + extension);
-      });
-      const uploadFileName = getFileName(fileNamesFiltered?.[i], status.name);
-
       const uploadTask = uploadFile({
         file: status.file,
-        fileName: uploadFileName,
+        fileName: status.name,
         level,
-        resumable,
+        isResumable,
         progressCallback: progressCallback(i),
         errorCallback: errorCallback(i),
-        completeCallback: completeCallback(),
+        completeCallback: onSuccess,
         ...rest,
       });
 
-      if (isUploadTask(uploadTask) && resumable) {
+      if (isUploadTask(uploadTask) && isResumable) {
         uploadTasksTemp.push(uploadTask);
       }
     });
 
-    const newFileStatuses = [...fileStatuses];
-    fileStatusesRef.current = newFileStatuses.map((status, index) => {
-      return {
+    setFileStatuses((prevFileStatuses) =>
+      prevFileStatuses.map((status, index) => ({
         ...status,
         uploadTask: uploadTasksTemp?.[index],
         fileState: status.fileState ?? 'loading',
-        percentage: 0,
-      };
-    });
-    const uploadTasks = [...fileStatusesRef.current];
-    setFileStatuses(uploadTasks);
+        percentage: status.percentage ?? 0,
+      }))
+    );
   }, [
-    acceptedFileTypes,
-    completeCallback,
-    errorCallback,
-    fileNames,
     fileStatuses,
-    level,
-    progressCallback,
     setFileStatuses,
-    resumable,
+    level,
+    isResumable,
+    progressCallback,
+    errorCallback,
+    onSuccess,
     rest,
   ]);
 
@@ -219,9 +223,13 @@ export function FileUploader({
       }
 
       const { files } = event.target;
+      // Spread files here because a I need a File[] instead, it's easier to iterate through
       const addedFilesLength = addTargetFiles([...files]);
       // only show previewer if the added files are great then 0
-      if (addedFilesLength > 0) setShowPreviewer(true);
+      if (addedFilesLength > 0) {
+        setShowPreviewer(true);
+        setAutoLoad(true);
+      }
     },
     [addTargetFiles, setShowPreviewer]
   );
@@ -248,18 +256,6 @@ export function FileUploader({
     [fileStatuses, setFileStatuses]
   );
 
-  const onNameChange = useCallback(
-    (index: number) => {
-      return (event: React.ChangeEvent<HTMLInputElement>) => {
-        const newFileStatuses = [...fileStatuses];
-        const name = event.target.value;
-        newFileStatuses[index].name = name;
-        setFileStatuses(newFileStatuses);
-      };
-    },
-    [fileStatuses, setFileStatuses]
-  );
-
   // Tracker methods
 
   const onSaveEdit = useCallback(
@@ -267,111 +263,141 @@ export function FileUploader({
       return (value: string) => {
         // no empty file names
         if (value.trim().length === 0) return;
-        const [extension] = value.split('.').reverse();
-        const validExtension = acceptedFileTypes.includes('.' + extension);
+
         const newFileStatuses = [...fileStatuses];
         const status = fileStatuses[index];
+        const validExtension = isValidExtension(value, status.file.name);
         newFileStatuses[index] = {
           ...status,
           name: value,
           fileState: !validExtension ? 'error' : null,
           fileErrors: validExtension
-            ? null
+            ? undefined
             : translate('Extension not allowed'),
         };
 
         setFileStatuses(newFileStatuses);
       };
     },
-    [acceptedFileTypes, fileStatuses, setFileStatuses]
+    [fileStatuses, setFileStatuses]
+  );
+
+  const updateFileState = useCallback(
+    (index: number, fileState: FileState) => {
+      setFileStatuses((prevFileStatuses) => {
+        const newFileStatuses = [...prevFileStatuses];
+        const status = newFileStatuses[index];
+        // Check if extension is valid before setting state
+        const validExtension = isValidExtension(status.name, status.file.name)
+          ? null
+          : 'error';
+        const updatedFileState =
+          fileState === null ? validExtension : fileState;
+
+        newFileStatuses[index] = {
+          ...status,
+          fileState: updatedFileState,
+        };
+        return newFileStatuses;
+      });
+    },
+    [setFileStatuses]
   );
 
   const onCancelEdit = useCallback(
     (index: number) => {
       return () => {
-        const newFileStatuses = [...fileStatuses];
-        const status = fileStatuses[index];
-        newFileStatuses[index] = {
-          ...status,
-          fileState: null,
-        };
-        setFileStatuses(newFileStatuses);
+        updateFileState(index, null);
       };
     },
-    [fileStatuses, setFileStatuses]
+    [updateFileState]
   );
 
   const onStartEdit = useCallback(
     (index: number) => {
       return (_: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-        const newFileStatuses = [...fileStatuses];
-        const status = fileStatuses[index];
-        newFileStatuses[index] = {
-          ...status,
-          fileState: 'editing',
-        };
-        setFileStatuses(newFileStatuses);
+        updateFileState(index, 'editing');
       };
     },
-    [fileStatuses, setFileStatuses]
+    [updateFileState]
   );
 
-  // UploadButton
-  const hiddenInput = React.useRef<HTMLInputElement>();
-  const onUploadButtonClick = () => {
-    hiddenInput.current.click();
-    hiddenInput.current.value = null;
-  };
+  useEffect(() => {
+    if (shouldAutoProceed && autoLoad && !hasMaxFilesError) {
+      onFileClick();
+    } else {
+      return;
+    }
+    setAutoLoad(false);
+  }, [shouldAutoProceed, onFileClick, autoLoad, hasMaxFilesError]);
 
-  const CommonProps = {
-    acceptedFileTypes,
-    multiple,
-    onFileChange,
-    onClick: onUploadButtonClick,
-    hiddenInput,
-  };
+  const hiddenInput = React.useRef<HTMLInputElement>();
+
+  const accept = acceptedFileTypes?.join();
+
+  const uploadButton = useMemo(
+    () => (
+      <>
+        <UploadButton
+          className={ComponentClassNames.FileUploaderDropZoneButton}
+          isDisabled={isLoading}
+          onClick={() => {
+            hiddenInput.current.click();
+            hiddenInput.current.value = null;
+          }}
+          size="small"
+          variation="primary"
+        >
+          {translate('Browse files')}
+        </UploadButton>
+        <VisuallyHidden>
+          <input
+            type="file"
+            tabIndex={-1}
+            ref={hiddenInput}
+            onChange={onFileChange}
+            multiple={hasMultipleFiles}
+            accept={accept}
+          />
+        </VisuallyHidden>
+      </>
+    ),
+    [UploadButton, isLoading, onFileChange, hasMultipleFiles, accept]
+  );
 
   if (showPreviewer) {
     return (
       <Previewer
-        acceptedFileTypes={acceptedFileTypes}
+        dropZone={
+          <UploadDropZone {...dropZoneProps} inDropZone={inDropZone}>
+            {uploadButton}
+          </UploadDropZone>
+        }
         fileStatuses={fileStatuses}
-        hiddenInput={hiddenInput}
-        inDropZone={inDropZone}
         isLoading={isLoading}
-        isSuccess={isSuccess()}
-        maxFilesError={maxFilesError}
-        multiple={multiple}
+        isSuccessful={isSuccessful}
+        hasMaxFilesError={hasMaxFilesError}
         onClear={onClear}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDragStart={onDragStart}
-        onDrop={onDrop}
-        onFileChange={onFileChange}
         onFileClick={onFileClick}
-        onUploadButtonClick={onUploadButtonClick}
-        percentage={percentage}
+        aggregatePercentage={aggregatePercentage}
       >
         {fileStatuses?.map((status, index) => (
           <Tracker
-            percentage={status.percentage}
+            errorMessage={status?.fileErrors}
             file={status.file}
+            fileState={status?.fileState}
             hasImage={status.file?.type.startsWith('image/')}
-            url={URL.createObjectURL(status.file)}
+            showImage={showImages}
             key={index}
-            onChange={onNameChange(index)}
+            name={status.name}
             onCancel={onFileCancel(index)}
+            onCancelEdit={onCancelEdit(index)}
             onPause={onPause(index)}
             onResume={onResume(index)}
-            onDelete={onDelete}
-            name={status.name}
-            fileState={status?.fileState}
-            errorMessage={status?.fileErrors}
             onSaveEdit={onSaveEdit(index)}
-            onCancelEdit={onCancelEdit(index)}
             onStartEdit={onStartEdit(index)}
-            resumable={resumable}
+            percentage={status.percentage}
+            isResumable={isResumable}
           />
         ))}
       </Previewer>
@@ -379,28 +405,17 @@ export function FileUploader({
   }
 
   if (variation === 'button') {
-    return <UploadButton {...CommonProps} />;
+    return uploadButton;
   } else {
     return (
-      <UploadDropZone
-        inDropZone={inDropZone}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDragStart={onDragStart}
-        onDrop={onDrop}
-      >
-        <Text className={ComponentClassNames.FileUploaderDropZoneText}>
-          {translate('Drop files here or')}
-        </Text>
-        <UploadButton
-          {...CommonProps}
-          className={ComponentClassNames.FileUploaderDropZoneButton}
-        />
+      <UploadDropZone {...dropZoneProps} inDropZone={inDropZone}>
+        {uploadButton}
       </UploadDropZone>
     );
   }
 }
 
 FileUploader.UploadDropZone = UploadDropZone;
-FileUploader.UploadButton = UploadButton;
+FileUploader.UploadButton = Button;
+FileUploader.Previewer = Previewer;
+FileUploader.Tracker = Tracker;

@@ -1,7 +1,7 @@
 export {
-  getFileName,
   uploadFile,
   humanFileSize,
   checkMaxSize,
   returnAcceptedFiles,
+  isValidExtension,
 } from './uploader';

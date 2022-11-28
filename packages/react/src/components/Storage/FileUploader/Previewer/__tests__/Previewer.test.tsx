@@ -34,25 +34,14 @@ const ref = {
 } as unknown as React.MutableRefObject<HTMLInputElement>;
 
 const commonProps = {
-  acceptedFileTypes: ['.png'],
+  aggregatePercentage: 0,
+  dropZone: <></>,
   fileStatuses: fileStatuses,
-  inDropZone: false,
-  isEditingName: [],
   isLoading: false,
-  isSuccess: false,
-  maxFilesError: false,
-  multiple: true,
+  isSuccessful: false,
+  hasMaxFilesError: false,
   onClear: () => null,
-  onDragEnter: () => null,
-  onDragLeave: () => null,
-  onDragOver: () => null,
-  onDragStart: () => null,
-  onDrop: () => null,
-  onFileChange: () => null,
   onFileClick: () => null,
-  percentage: 0,
-  hiddenInput: ref,
-  onUploadButtonClick: () => null,
 };
 
 describe('Previewer', () => {
@@ -87,9 +76,9 @@ describe('Previewer', () => {
 
     expect(await screen.findByText(/Upload 1 files/)).toBeDisabled();
   });
-  it('shows max files error alert when maxFilesError is true', async () => {
+  it('shows max files error alert when hasMaxFilesError is true', async () => {
     const { container } = render(
-      <Previewer {...commonProps} maxFilesError={true} />
+      <Previewer {...commonProps} hasMaxFilesError={true} />
     );
 
     expect(
@@ -112,14 +101,16 @@ describe('Previewer', () => {
       <Previewer
         {...commonProps}
         fileStatuses={[fileStatus]}
-        isSuccess={true}
+        isSuccessful={true}
       />
     );
 
     expect(await screen.findByText(/1 files uploaded/)).toBeVisible();
   });
   it('shows when loading an uploading with percentage', async () => {
-    render(<Previewer {...commonProps} isLoading={true} percentage={23} />);
+    render(
+      <Previewer {...commonProps} isLoading={true} aggregatePercentage={23} />
+    );
 
     expect(await screen.findByText(/Uploading: 23%/)).toBeVisible();
   });
@@ -152,12 +143,12 @@ describe('Previewer', () => {
     expect(await screen.findByText(/Upload 0 files/)).toBeDisabled();
   });
   it('shows disabled upload button when max files is showing an error', async () => {
-    render(<Previewer {...commonProps} maxFilesError={true} />);
+    render(<Previewer {...commonProps} hasMaxFilesError={true} />);
 
     expect(await screen.findByText(/Upload 1 files/)).toBeDisabled();
   });
   it('shows done when upload is completed', async () => {
-    render(<Previewer {...commonProps} isSuccess={true} />);
+    render(<Previewer {...commonProps} isSuccessful={true} />);
 
     expect(await screen.findByText(/Done/)).toBeVisible();
   });

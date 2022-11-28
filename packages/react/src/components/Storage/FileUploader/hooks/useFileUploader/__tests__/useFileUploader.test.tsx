@@ -10,8 +10,9 @@ const fakeFile = new File(['hello'], 'hello.png', { type: 'image/png' });
 const commonUseFileLoaderArgs = {
   maxSize: 200,
   acceptedFileTypes: ['.png'],
-  multiple: true,
+  hasMultipleFiles: true,
   isLoading: false,
+  setAutoLoad: () => null,
 };
 
 describe('useFileUploader', () => {
@@ -82,11 +83,11 @@ describe('useFileUploader', () => {
     });
     expect(result.current.fileStatuses.length).toEqual(1);
   });
-  it('returns 1 and updates file statuses when not multiple and target length is 1', () => {
+  it('returns 1 and updates file statuses when not hasMultipleFiles and target length is 1', () => {
     const { result } = renderHook(() =>
       useFileUploader({
         ...commonUseFileLoaderArgs,
-        multiple: false,
+        hasMultipleFiles: false,
       })
     );
 
@@ -99,11 +100,11 @@ describe('useFileUploader', () => {
     expect(result.current.fileStatuses.length).toEqual(1);
   });
 
-  it('returns 1 and updates file statutuses when not multiple and target length > 1', () => {
+  it('returns 1 and updates file statutuses when not hasMultipleFiles and target length > 1', () => {
     const { result } = renderHook(() =>
       useFileUploader({
         ...commonUseFileLoaderArgs,
-        multiple: false,
+        hasMultipleFiles: false,
       })
     );
 
@@ -236,7 +237,7 @@ describe('useFileUploader', () => {
     const { result } = renderHook(() =>
       useFileUploader({
         ...commonUseFileLoaderArgs,
-        multiple: false,
+        hasMultipleFiles: false,
         maxSize: 1,
       })
     );
@@ -256,5 +257,23 @@ describe('useFileUploader', () => {
         name: 'hello.png',
       },
     ]);
+  });
+  it('returns 1 file from target files that matches image/* mime type', () => {
+    const { result } = renderHook(() =>
+      useFileUploader({
+        ...commonUseFileLoaderArgs,
+        acceptedFileTypes: ['image/*'],
+      })
+    );
+    const fakeFileHTML = new File(['goodbye'], 'goodbye.html', {
+      type: 'text/html',
+    });
+
+    const {
+      current: { addTargetFiles },
+    } = result;
+    const numOfFiles = addTargetFiles?.([fakeFile, fakeFileHTML]);
+
+    expect(numOfFiles).toEqual(1);
   });
 });
